@@ -100,7 +100,7 @@ def analyze_im3_candidates(site, tx_ids, rx_id, show_levels=False, use_markdown=
         rx = site['rx_list'][rx_id]
 
         im3_list = generate_im3_frequencies(tx_list, tx_ids)
-        print(f"\n🔎 Third-order intermodulation frequency analysis for #{rx_id + 1} ({rx['frequency_mhz']} MHz):")
+        print(f"🔎 Third-order intermodulation frequency analysis for #{rx_id + 1} ({rx['frequency_mhz']} MHz):")
 
         for f_im3, i, j in im3_list:
             delta_f = abs(f_im3 - rx['frequency_mhz'])
