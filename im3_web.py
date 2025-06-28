@@ -5,6 +5,8 @@ from site_loader import process_unit
 from ems_local_analyzer import analyze_tx_to_rx, format_ems_result
 import pandas as pd
 from antenna_utils import load_antenna_pattern, plot_antenna_patterns
+from antenna_viewer import visualize_all_antennas
+from antenna_viewer import check_antenna_position, get_antenna_warnings
 import streamlit as st
 import os
 from fpdf import FPDF
@@ -29,9 +31,49 @@ st.header("Аналізатор ЕМС між радіоелектроними �
 if "tx_list" not in st.session_state:
     st.session_state.tx_list = []
 
+# --- Sidebar ---
 st.sidebar.subheader("➕ Додати передавач")
+
 if st.sidebar.button("Додати TX"):
-    st.session_state.tx_list.append({})
+    st.session_state.tx_list.append({
+        'device_name': DEVICE_NAMES[0],
+        'antenna_name': ANTENNA_NAMES[0],
+        'power_dbm': 44.0,
+        'frequency_mhz': 160.0,
+        'BW_khz': 12.5,
+        'azimuth': 0.0,
+        'elevation': 0.0,
+        'coords': (0.0, 0.0, 20.0),  # обязательно инициализируем coords
+        'loss': 4.0
+    })
+
+st.sidebar.markdown("### Розміри мачти")
+
+mast_x = st.sidebar.number_input("Ширина мачти X (м)", min_value=1.0, value=10.0, step=0.1, key="mast_x")
+mast_y = st.sidebar.number_input("Глибина мачти Y (м)", min_value=1.0, value=10.0, step=0.1, key="mast_y")
+mast_z = st.sidebar.number_input("Висота мачти Z (м)", min_value=1.0, value=40.0, step=0.1, key="mast_z")
+
+mast_size = (mast_x, mast_y, mast_z)
+
+if "show_mast" not in st.session_state:
+    st.session_state.show_mast = False
+
+if st.sidebar.button("Візуалізувати мачту з антенами"):
+    st.session_state.show_mast = True
+    st.session_state.expand_im3_results = False  # ⬅️ Сброс
+    st.session_state.expand_ems_results = False
+
+if st.sidebar.button("Закрити візуалізацію"):
+    st.session_state.show_mast = False
+
+if st.session_state.show_mast:
+    tx_list = st.session_state.tx_list
+    rx = st.session_state.rx
+    if (len(tx_list) == 0 and (not rx or rx == {})):
+        st.sidebar.warning("⚠️ Потрібно додати хоча б один передавач або приймач.")
+    else:
+        fig = visualize_all_antennas(tx_list, [rx], mast_size=mast_size, show=False)
+        st.pyplot(fig)
 
 if "rx" not in st.session_state:
     st.session_state.rx = {}
@@ -49,16 +91,28 @@ for i, tx in enumerate(tx_list):
         tx['BW_khz'] = st.number_input(f"📏 Ширина смуги TX #{i + 1} (кГц)", value=tx.get("BW_khz", 12.5), step=0.1, key=f"bw_tx_{i}")
         tx['azimuth'] = st.number_input(f"🧭 Азимут TX #{i+1} (°)", value=tx.get("azimuth", 0.0),step=0.1, key=f"azimuth_tx_{i}")
         tx['elevation'] = st.number_input(f"🎯 Кут місця TX #{i+1} (°)", value=tx.get("elevation", 0.0),step=0.1, key=f"elevation_tx_{i}")
+        coords = tx.get("coords")
+        if not coords or len(coords) != 3:
+            coords = (0.0, 0.0, 20.0)
+
         tx['coords'] = (
-            st.number_input(f"📍 X TX #{i+1} (м)", value=tx.get("coords", (0.0, 0.0, 20.0))[0],step=0.1, key=f"x_tx_{i}"),
-            st.number_input(f"📍 Y TX #{i+1} (м)", value=tx.get("coords", (0.0, 0.0, 20.0))[1],step=0.1, key=f"y_tx_{i}"),
-            st.number_input(f"📍 Z TX #{i+1} (м)", value=tx.get("coords", (0.0, 0.0, 20.0))[2],step=0.1, key=f"z_tx_{i}")
+            st.number_input(f"📍 X TX #{i + 1} (м)", value=coords[0], step=0.1, key=f"x_tx_{i}"),
+            st.number_input(f"📍 Y TX #{i + 1} (м)", value=coords[1], step=0.1, key=f"y_tx_{i}"),
+            st.number_input(f"📍 Z TX #{i + 1} (м)", value=coords[2], step=0.1, key=f"z_tx_{i}")
         )
-        tx['loss'] = st.number_input(f"📉 Втрати TX #{i+1} (дБ)", value=tx.get("loss", 2.0),step=0.1, key=f"loss_tx_{i}")
+
+        tx['loss'] = st.number_input(f"📉 Втрати TX #{i+1} (дБ)", value=tx.get("loss", 4.0),step=0.1, key=f"loss_tx_{i}")
 
         try:
             process_unit(tx, "DeviceDB.xlsx", "AntennaDN.xlsx", index=i, role="tx")
             st.success("✅ Передавач успішно перевірено на відповідність параметрів.")
+
+            # Показываем предупреждения по позициям для всех антенн текущего набора:
+            warnings = get_antenna_warnings(st.session_state.tx_list, [st.session_state.rx],
+                                            mast_size=(mast_x, mast_y, mast_z))
+            for w in warnings:
+                st.warning(w)
+
         except ValueError as e:
             st.error(str(e))
 
@@ -71,42 +125,62 @@ with st.expander("📡 Приймач", expanded=st.session_state.expanded_rx):
     rx['BW_khz'] = st.number_input("📏 Ширина смуги RX (кГц)", value=rx.get("BW_khz", 12.5), step=0.1, key="bw_rx")
     rx['azimuth'] = st.number_input("🧭 Азимут RX (°)", value=rx.get("azimuth", 0.0),step=0.1, key="azimuth_rx")
     rx['elevation'] = st.number_input("🎯 Кут місця RX (°)", value=rx.get("elevation", 0.0),step=0.1, key="elevation_rx")
+    coords = rx.get("coords")
+    if not coords or len(coords) != 3:
+        coords = (0.0, 0.0, 25.0)
+
     rx['coords'] = (
-        st.number_input("📍 X RX (м)", value=rx.get("coords", (0.0, 0.0, 25.0))[0],step=0.1, key="x_rx"),
-        st.number_input("📍 Y RX (м)", value=rx.get("coords", (0.0, 0.0, 25.0))[1],step=0.1, key="y_rx"),
-        st.number_input("📍 Z RX (м)", value=rx.get("coords", (0.0, 0.0, 25.0))[2],step=0.1, key="z_rx")
+        st.number_input(f"📍 X RX (м)", value=coords[0], step=0.1, key=f"x_rx"),
+        st.number_input(f"📍 Y RX (м)", value=coords[1], step=0.1, key=f"y_rx"),
+        st.number_input(f"📍 Z RX (м)", value=coords[2], step=0.1, key=f"z_rx")
     )
-    rx['loss'] = st.number_input("📉 Втрати RX (дБ)", value=rx.get("loss", 2.0),step=0.1, key="loss_rx")
+    rx['loss'] = st.number_input("📉 Втрати RX (дБ)", value=rx.get("loss", 4.0),step=0.1, key="loss_rx")
     rx['sensitivity_dbm'] = st.number_input("🎚️ Чутливість RX (дБм)", value=rx.get("sensitivity_dbm", -117.0),step=0.1, key="sens_rx")
 
     try:
         process_unit(rx, "DeviceDB.xlsx", "AntennaDN.xlsx", index=0, role="rx")
         st.success("✅ Приймач успішно перевірено на відповідність параметрів.")
+
+        warnings = get_antenna_warnings(st.session_state.tx_list, [rx], mast_size=(mast_x, mast_y, mast_z))
+        for w in warnings:
+            st.warning(w)
+
     except ValueError as e:
         st.error(str(e))
 
 st.markdown("---")
 st.subheader("📡 Побудова діаграм направленості антен")
 
+# Добавляем флаг отображения диаграммы направленості, если его ещё нет
+if "show_antenna_pattern" not in st.session_state:
+    st.session_state.show_antenna_pattern = False
+
 antenna_to_plot = st.selectbox("📁 Виберіть антену для побудови ДН", ANTENNA_NAMES)
 
-if st.button("📈 Побудувати ДН"):
+if st.button("📈 Побудувати ДН", key="build_pattern"):
+    st.session_state.show_antenna_pattern = True
+    st.session_state.expand_im3_results = False  # ⬅️ Сброс
+    st.session_state.expand_ems_results = False  # ⬅️ Сброс
+
+if st.session_state.show_antenna_pattern:
     try:
         hor_df, vert_df = load_antenna_pattern("AntennaDN.xlsx", sheet_name=antenna_to_plot)
         fig = plot_antenna_patterns(hor_df, vert_df, sheet_name=antenna_to_plot)
         st.pyplot(fig)
+
+        if st.button("❌ Закрити ДН", key="close_pattern"):
+            st.session_state.show_antenna_pattern = False
     except Exception as e:
         st.error(f"Не вдалося побудувати ДН: {e}")
 
 st.markdown("---")
 
 if st.button("▶️ Виконати аналіз IM"):
-    st.subheader("📈 Результати IM3")
-
     if len(tx_list) < 2:
         warning = "⚠️ At least two transmitters must be selected to perform intermodulation analysis."
         st.warning(warning)
         st.session_state.report_text = warning
+        st.session_state.expand_im3_results = True
     else:
         result = analyze_im3_candidates(
             {"tx_list": tx_list, "rx_list": [rx]},
@@ -115,24 +189,27 @@ if st.button("▶️ Виконати аналіз IM"):
             show_levels=True,
             use_markdown=True
         )
-        st.markdown(result.replace("\n", "<br>"), unsafe_allow_html=True)
         st.session_state.report_text = result
+        st.session_state.expand_im3_results = True
 
 if st.button("📡 Виконати аналіз локальної ЕМС"):
-    st.subheader("📈 Результати локального ЕМС")
+    if not tx_list:
+        warning = "⚠️ t least one transmitter must be selected to perform local EMC analysis."
+        st.warning(warning)
+        st.session_state.report_text = warning
+        st.session_state.expand_ems_results = True
+    else:
+        full_text = ""
+        for i, tx in enumerate(tx_list):
+            try:
+                res = analyze_tx_to_rx(tx, rx)
+                formatted = format_ems_result(res, tx_index=i, rx=rx)
+                full_text += formatted + "\n\n"
+            except Exception as e:
+                full_text += f"❌ TX #{i+1} → RX: Помилка: {e}\n\n"
+        st.session_state.local_ems_report = full_text
+        st.session_state.expand_ems_results = True
 
-    full_text = ""
-
-    for i, tx in enumerate(tx_list):
-        try:
-            res = analyze_tx_to_rx(tx, rx)
-            formatted = format_ems_result(res, tx_index=i)
-            full_text += formatted + "\n\n"
-        except Exception as e:
-            full_text += f"❌ TX #{i+1} → RX: Помилка: {e}\n\n"
-
-    st.markdown(full_text.replace("\n", "<br>"), unsafe_allow_html=True)
-    st.session_state.local_ems_report = full_text
 
 
 
@@ -168,6 +245,21 @@ def format_rx_info(rx):
     lines.append(f"  Sensitivity: {rx.get('sensitivity_dbm', '')} dBm\n")
     return "\n".join(lines)
 
+if "expand_im3_results" not in st.session_state:
+    st.session_state.expand_im3_results = False
+
+if "expand_ems_results" not in st.session_state:
+    st.session_state.expand_ems_results = False
+
+
+# Показываем оба отчёта в разворачиваемых блоках
+if 'report_text' in st.session_state:
+    with st.expander("📈 Результати IM3", expanded=st.session_state.expand_im3_results):
+        st.markdown(st.session_state.report_text.replace("\n", "<br>"), unsafe_allow_html=True)
+
+if 'local_ems_report' in st.session_state:
+    with st.expander("📈 Результати локального ЕМС", expanded=st.session_state.expand_ems_results):
+        st.markdown(st.session_state.local_ems_report.replace("\n", "<br>"), unsafe_allow_html=True)
 
 
 # === Save PDF Report ===
