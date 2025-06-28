@@ -80,10 +80,10 @@ def format_ems_result(res, tx_index=0):
     lines = []
     lines.append(f"📡 TX #{tx_index + 1} → RX: {res['tx_name']} → {res['rx_name']}")
     lines.append(f"  Distance: {res['distance_m']:.1f} m")
-    lines.append(f"  gt = {res['gt']:.2f} dBi, gr = {res['gr']:.2f} dBi")
-    lines.append(f"  FSPL = {res['fspl']:.2f} dB")
-    lines.append(f"  Received power = {res['prx_dbm']:.2f} dBm")
-    lines.append(f"  Pint (with EN/ACS) = {res['Pint']:.2f} dBm")
+    #lines.append(f"  gt = {res['gt']:.2f} dBi, gr = {res['gr']:.2f} dBi")
+    #lines.append(f"  FSPL = {res['fspl']:.2f} dB")
+    #lines.append(f"  Received power = {res['prx_dbm']:.2f} dBm")
+    lines.append(f"  Pint = {res['Pint']:.2f} dBm")
 
     block = res.get('block_result')
     if block:
