@@ -91,7 +91,7 @@ def format_ems_result(res, tx_index=0):
         lines.append(f"     → Pblock = {block['Pblock']:.2f} dBm, threshold = {block['threshold']:.2f} dBm")
         lines.append("     ✅ Allowed" if block['passed'] else "     ❌ Exceeded!")
     else:
-        lines.append("  ℹ️ Blocking interference: not considered")
+       lines.append("  ℹ️ Blocking interference: not considered (Frequency offset too far)")
 
     induced = res.get('induced_result')
     if induced and induced.get('considered'):
