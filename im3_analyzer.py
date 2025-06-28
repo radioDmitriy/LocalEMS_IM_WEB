@@ -1,3 +1,5 @@
+# im3_analyzer.py
+
 import math
 import itertools
 from site_loader import process_site
@@ -120,10 +122,6 @@ def analyze_im3_candidates(site, tx_ids, rx_id, show_levels=False, use_markdown=
                     print(f"     ⚠️ Error calculating IM level: {e}")
 
     return buffer.getvalue()
-
-
-
-
 
 if __name__ == "__main__":
     try:
