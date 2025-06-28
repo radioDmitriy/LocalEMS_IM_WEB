@@ -24,7 +24,7 @@ def load_antenna_sheet_names(filename):
 DEVICE_NAMES = load_device_names_from_columns("DeviceDB.xlsx")
 ANTENNA_NAMES = load_antenna_sheet_names("AntennaDN.xlsx")
 
-st.title("Аналізатор впливу інтермодуляції (ІМ) та локальної ЕМС")
+st.header("Аналізатор ЕМС між радіоелектроними засобами на локальному об'єкті")
 
 if "tx_list" not in st.session_state:
     st.session_state.tx_list = []
