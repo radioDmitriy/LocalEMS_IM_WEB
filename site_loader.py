@@ -15,8 +15,8 @@ def process_unit(unit, device_file, antenna_file, index=None, role='tx'):
     headers = df.iloc[0].dropna().astype(str).str.strip().tolist()
 
     if device_name not in headers:
-        print(f"\n📛 Ошибка: {prefix} — устройство '{device_name}' не найдено в базе DeviceDB.xlsx", file=sys.stderr)
-        print(f"🔎 Проверьте правильность написания имени устройства в конфигурации сайта.", file=sys.stderr)
+        print(f"\n📛 Ошибка: {prefix} — пристрій '{device_name}' не знайдено в базі DeviceDB.xlsx", file=sys.stderr)
+        print(f"🔎 Перевірте коректність написання назви пристрою в конфігурації сайта.", file=sys.stderr)
         sys.exit(1)
 
     device_col = df.columns[df.iloc[0].astype(str).str.strip() == device_name][0]
@@ -32,26 +32,26 @@ def process_unit(unit, device_file, antenna_file, index=None, role='tx'):
         max_val = param_dict.get(key_max, value)
         if not (min_val <= value <= max_val):
             raise ValueError(
-                f"❌ {prefix}: {label} = {value} вне допустимого диапазона [{min_val}, {max_val}]"
+                f"❌ {prefix}: {label} = {value} поза допустимим діапазоном [{min_val}, {max_val}]"
             )
         return value
 
     def validate_choice(value, allowed_values, label):
         if value not in allowed_values:
             raise ValueError(
-                f"❌ {prefix}: {label} = {value} не входит в допустимые значения: {allowed_values}"
+                f"❌ {prefix}: {label} = {value} не входить у допустимі значення: {allowed_values}"
             )
         return value
 
     # === Роль TX или RX ===
     if role == 'tx':
         unit['power_dbm'] = validate(unit.get('power_dbm', param_dict.get('TX Power Default (dBm)', 30)),
-                                     'TX Power Min (dBm)', 'TX Power Max (dBm)', 'Мощность передатчика')
+                                     'TX Power Min (dBm)', 'TX Power Max (dBm)', 'Потужність передавача')
     if role == 'rx':
         if 'RX Sensitivity Default  (dBm)' in param_dict:
             unit['sensitivity_dbm'] = validate(
                 unit.get('sensitivity_dbm', param_dict['RX Sensitivity Default  (dBm)']),
-                'RX Sensitivity Min  (dBm)', 'RX Sensitivity Max  (dBm)', 'Чувствительность приёмника')
+                'RX Sensitivity Min  (dBm)', 'RX Sensitivity Max  (dBm)', 'Чутливість приймача')
 
     # === Частота ===
     unit['frequency_mhz'] = validate(unit.get('frequency_mhz', param_dict.get('TX Frequency Default (MHz)', 150)),
@@ -63,7 +63,7 @@ def process_unit(unit, device_file, antenna_file, index=None, role='tx'):
         allowed_bw = [float(b.strip()) for b in str(bw_opts).split(',')]
     except Exception:
         allowed_bw = [12.5]  # fallback
-    unit['BW_khz'] = validate_choice(unit.get('BW_khz', allowed_bw[0]), allowed_bw, 'Ширина полосы (BW_khz)')
+    unit['BW_khz'] = validate_choice(unit.get('BW_khz', allowed_bw[0]), allowed_bw, 'Ширина смуги (BW_khz)')
 
     # === Дополнительные параметры ===
     # === Уровень излучения вне полосы (EN_dBm) — только для TX
@@ -93,8 +93,8 @@ def process_unit(unit, device_file, antenna_file, index=None, role='tx'):
     try:
         hor, vert, ant_info = load_antenna_pattern_with_info(antenna_file, ant_name)
     except Exception:
-        print(f"\n📛 Ошибка: {prefix} — антенна '{ant_name}' не найдена в базе AntennaDN.xlsx", file=sys.stderr)
-        print(f"🔎 Проверьте правильность написания имени антенны в конфигурации сайта.", file=sys.stderr)
+        print(f"\n📛 Помилка: {prefix} — антена '{ant_name}' не знайдена в базі AntennaDN.xlsx", file=sys.stderr)
+        print(f"🔎 Перевірте коректність написання назви антени в конфигурації сайта.", file=sys.stderr)
         sys.exit(1)
 
     unit['gain_max'] = ant_info.get('Max Gain (dBi)', 0)
