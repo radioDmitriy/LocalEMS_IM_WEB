@@ -76,14 +76,20 @@ def analyze_tx_to_rx(tx, rx):
     }
     return result
 
-def format_ems_result(res, tx_index=0):
+def format_ems_result(res, tx_index=0, rx=None):
+
     lines = []
     lines.append(f"📡 TX #{tx_index + 1} → RX: {res['tx_name']} → {res['rx_name']}")
     lines.append(f"  Distance: {res['distance_m']:.1f} m")
     #lines.append(f"  gt = {res['gt']:.2f} dBi, gr = {res['gr']:.2f} dBi")
     #lines.append(f"  FSPL = {res['fspl']:.2f} dB")
     #lines.append(f"  Received power = {res['prx_dbm']:.2f} dBm")
-    lines.append(f"  Pint = {res['Pint']:.2f} dBm")
+    threshold = rx.get('sensitivity_dbm', -100) + 10
+    pint = res['Pint']
+    if pint > threshold:
+        lines.append(f"  ❌ Pint = {pint:.2f} dBm > threshold {threshold:.0f} dBm — may exceed limit!")
+    else:
+        lines.append(f"  ✅ Pint = {pint:.2f} dBm ≤ threshold {threshold:.0f} dBm")
 
     block = res.get('block_result')
     if block:
@@ -91,7 +97,7 @@ def format_ems_result(res, tx_index=0):
         lines.append(f"     → Pblock = {block['Pblock']:.2f} dBm, threshold = {block['threshold']:.2f} dBm")
         lines.append("     ✅ Allowed" if block['passed'] else "     ❌ Exceeded!")
     else:
-       lines.append("  ℹ️ Blocking interference: not considered (Frequency offset too far)")
+        lines.append("  ℹ️ Blocking interference: not considered (Frequency offset too far)")
 
     induced = res.get('induced_result')
     if induced and induced.get('considered'):
